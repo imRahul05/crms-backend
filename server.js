@@ -11,7 +11,7 @@ const PORT = process.env.PORT;
 app.use(express.json());
 app.use(cors({
     origin: [
-        "https://crms-frontend-theta.vercel.app/",
+        "https://crms-frontend-theta.vercel.app",
         "http://localhost:5173"
     ],
     credentials: true,
