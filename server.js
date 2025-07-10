@@ -16,6 +16,7 @@ app.use(cors({
     ],
     credentials: true,
 }));
+// app.options('*', cors());
 app.use('/api/user',userRouter)
 
 app.get('/test', (req, res) => {
