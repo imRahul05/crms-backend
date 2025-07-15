@@ -162,4 +162,92 @@ const statusUpdate = async (req, res) => {
     res.status(500).json({ message: 'Failed to update status' });
   }
 }
-module.exports={submitReferral,signup,login,ProfileData, myReferals,fetchReferalsAdmin,statusUpdate}
+
+
+const bulkStatusUpdate = async (req, res) => {
+  try {
+    const { updates } = req.body;
+    
+    // Validate request body
+    if (!Array.isArray(updates) || updates.length === 0) {
+      return res.status(400).json({ 
+        message: 'Please provide an array of updates with referralIds and status' 
+      });
+    }
+
+    // Validate structure of each update
+    const isValidUpdate = updates.every(update => 
+      update.referralId && update.status
+    );
+
+    if (!isValidUpdate) {
+      return res.status(400).json({ 
+        message: 'Each update must contain referralId and status' 
+      });
+    }
+
+    // Perform bulk update
+    const bulkUpdatePromises = updates.map(async ({ referralId, status }) => {
+      return candidateReferal.findByIdAndUpdate(
+        referralId,
+        { status },
+        { new: true }
+      );
+    });
+
+    const updatedReferrals = await Promise.all(bulkUpdatePromises);
+
+    res.status(200).json({
+      message: 'Bulk status update successful',
+      updatedReferrals
+    });
+
+  } catch (error) {
+    console.error('Bulk update error:', error);
+    res.status(500).json({ 
+      message: 'Failed to perform bulk status update',
+      error: error.message 
+    });
+  }
+};
+
+
+
+const deleteReferral = async (req, res) => {
+    try {
+        const referralId = req.params.id;
+
+        // Find the referral first
+        const referral = await candidateReferal.findById(referralId);
+        
+        if (!referral) {
+            return res.status(404).json({ 
+                message: 'Referral not found' 
+            });
+        }
+
+        // Remove referral from user's referrals array
+        await userModel.findByIdAndUpdate(
+            referral.referredBy,
+            { $pull: { referrals: referralId } }
+        );
+
+        // Delete the referral
+        await candidateReferal.findByIdAndDelete(referralId);
+
+        res.status(200).json({ 
+            message: 'Referral deleted successfully',
+            deletedReferralId: referralId
+        });
+
+    } catch (error) {
+        console.error('Delete referral error:', error);
+        res.status(500).json({ 
+            message: 'Failed to delete referral',
+            error: error.message 
+        });
+    }
+};
+
+
+module.exports={submitReferral,signup,login,ProfileData, myReferals,fetchReferalsAdmin,statusUpdate,bulkStatusUpdate,deleteReferral}

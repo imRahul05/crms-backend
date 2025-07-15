@@ -9,6 +9,8 @@ const {
   myReferals,
   fetchReferalsAdmin,
   statusUpdate,
+  bulkStatusUpdate,
+  deleteReferral,
 } = require("../controllers/user.controller");
 const { isAdmin } = require("../middlewares/admin.middleware");
 const { protect } = require("../middlewares/auth.middleware");
@@ -25,10 +27,16 @@ userRouter.post("/referal-submit",protect,upload.single('resume') ,submitReferra
 
 userRouter.get('/my-referrals',protect, myReferals);
 
+
+// admins side
 userRouter.get('/admin/referrals',protect,isAdmin, fetchReferalsAdmin);
 
 
 userRouter.put('/admin/referrals/:id/status',protect, isAdmin, statusUpdate);
 
+userRouter.put('/admin/referrals/bulk-status-update', protect, isAdmin, bulkStatusUpdate);
+
+
+userRouter.delete('/admin/referrals/:id', protect, isAdmin, deleteReferral);
 
 module.exports = userRouter;
