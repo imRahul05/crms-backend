@@ -1,6 +1,6 @@
 const nodemailer = require("nodemailer");
 
-console.log("Email:", process.env.EMAIL_USER);
+//console.log("Email:", process.env.EMAIL_USER);
 
 const transporter = nodemailer.createTransport({
   service: 'gmail',

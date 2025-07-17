@@ -4,7 +4,9 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const sendMail = require("../utils/mailer");
 require("dotenv").config();
-
+const FRONTEND_URL = process.env.FRONTEND_URL;
+const JWT_SECRET = process.env.JWT_SECRET
+const nodemailer = require("nodemailer");
 // const signup = async (req, res) => {
 //   try {
 //     const saltRounds = 10;
@@ -31,6 +33,7 @@ require("dotenv").config();
 //     console.log(error);
 //   }
 // };
+//Common function to handle user signup
 const signup = async (req, res) => {
   try {
     const saltRounds = 10;
@@ -99,6 +102,164 @@ const login = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+const resetPassword = async (req, res) => {
+  const { email } = req.body;
+  try {
+  
+    const user = await userModel.findOne({ email });
+  console.log(user)
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      JWT_SECRET,
+      { expiresIn: '15m' }
+    );
+
+   
+    const resetLink = `${FRONTEND_URL}/change-password?token=${token}`;
+
+    // 4. Send email
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      }
+    });
+
+const mailOptions = {
+  from: process.env.EMAIL_USER,
+  to: user.email,
+  subject: 'Reset Your Password',
+  html: `
+    <div style="font-family: Arial, sans-serif; color: #333; padding: 20px;">
+      <h2 style="color: #007BFF;">Password Reset Request</h2>
+      <p>Hi ${user.name || 'there'},</p>
+
+      <p>We received a request to reset your password. Click the button below to set a new password:</p>
+
+      <a href="${resetLink}" 
+         style="display: inline-block; margin: 15px 0; padding: 10px 20px; background-color: #007BFF; color: white; text-decoration: none; border-radius: 5px;">
+        Reset Password
+      </a>
+
+      <p>If the button doesn't work, you can also use the following link:</p>
+      <p style="word-break: break-all;">
+        <a href="${resetLink}">${resetLink}</a>
+      </p>
+
+      <p>This link will expire in 15 minutes for your security.</p>
+
+      <hr style="margin-top: 30px;" />
+      <p style="font-size: 12px; color: #888;">
+        If you didn't request a password reset, you can ignore this email.
+      </p>
+    </div>
+  `
+};
+
+    await transporter.sendMail(mailOptions);
+    res.json({ message: 'Reset link sent to your email.' });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Something went wrong.' ,error: err.message});
+  }
+}
+
+
+// const requestPasswordChange = async(req, res) => {
+//   const token = req.query.token;
+//   const { newPassword } = req.body;
+//   console.log(newPassword,token)
+//   if (!token || !newPassword)
+//     return res.status(400).json({ message: 'Token and new password are required.' });
+
+//   try {
+
+//     const decoded = jwt.verify(token, JWT_SECRET); 
+//     const userId = decoded.id;
+
+//     // 2. Find user by ID from token
+//     const user = await userModel.findById(userId);
+//     if (!user) return res.status(404).json({ message: 'User not found.' });
+
+//     // 3. Hash the new password
+//     const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+//     // 4. Update user password in DB
+//     user.password = hashedPassword;
+//     await user.save();
+
+//     return res.json({ message: 'Password has been reset successfully.' });
+//   } catch (error) {
+//     console.error('Reset token error:', error.message);
+//     return res.status(400).json({ message: 'Invalid or expired token.',error: error.message });
+//   }
+// }
+
+
+
+
+const requestPasswordChange = async (req, res) => {
+  const token = req.query.token;
+  const { newPassword } = req.body;
+
+  if (!token || !newPassword)
+    return res.status(400).json({ message: 'Token and new password are required.' });
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const userId = decoded.id;
+
+    const user = await userModel.findById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found.' });
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    await user.save();
+
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+      }
+    });
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: user.email,
+      subject: 'Your Password Was Reset',
+      html: `
+        <div style="font-family: Arial, sans-serif; color: #333; padding: 20px;">
+          <h2 style="color: #28a745;">Password Reset Confirmation</h2>
+          <p>Hi ${user.name || 'there'},</p>
+
+          <p>Your password has been successfully changed.</p>
+
+          <p><strong>New Password:</strong> ${newPassword}</p>
+
+          <p>If you did not perform this action, please reset your password immediately or contact support.</p>
+
+          <hr />
+          <p style="font-size: 12px; color: #888;">If you did request this change, no further action is needed.</p>
+        </div>
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    return res.json({ message: 'Password has been reset and email sent.' });
+  } catch (error) {
+    console.error('Reset token error:', error.message);
+    return res.status(400).json({ message: 'Invalid or expired token.', error: error.message });
+  }
+};
+
 
 const ProfileData = async (req, res) => {
   try {
@@ -291,4 +452,6 @@ module.exports = {
   statusUpdate,
   bulkStatusUpdate,
   deleteReferral,
+  resetPassword,
+  requestPasswordChange
 };
