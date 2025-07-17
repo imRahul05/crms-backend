@@ -1,104 +1,141 @@
-const candidateReferal = require('../models/candidateReferal.model');
-const { userModel } = require('../models/user.model');
+const candidateReferal = require("../models/candidateReferal.model");
+const { userModel } = require("../models/user.model");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-require('dotenv').config();
+const sendMail = require("../utils/mailer");
+require("dotenv").config();
 
-const signup = async (req,res) => {
-    
-    try {
-        const saltRounds=10
-        const {email,password}= req.body
-        const hash = bcrypt.hash(password, saltRounds, async function(err,hash){
-            if(err)
-                res.status(500).json({Error:"error in signup",err})
-            else{
-                 await  userModel.create({...req.body,password:hash})
-                console.log("signup successFull",hash)
-                res.status(200).json({message:"signup successFull"})
-            }
-        });
+// const signup = async (req, res) => {
+//   try {
+//     const saltRounds = 10;
+//     const { name,email, password ,role} = req.body;
+//       const isUser = await userModel.findOne({ email: email })
+//     if (isUser) {
+//       return res.status(409).json({ message: "User already registered. Please sign in to continue." })
+//     }
+//     const hash = bcrypt.hash(password, saltRounds, async function (err, hash) {
+//       if (err) res.status(500).json({ Error: "error in signup", err });
+//       else {
+//         await userModel.create({ ...req.body, password: hash });
+//         console.log("signup successFull", hash);
+//         await sendMail(
+//           email,
+//           "Welcome to Our App!",
+//           `Hello ${name},\n\nThanks for registering as a ${role}. We're happy to have you!`
+//         );
+//         res.status(200).json({ message: "signup successFull" });
+//       }
+//     });
+//   } catch (error) {
+//     res.status(500).json({ Error: "error in signup", error });
+//     console.log(error);
+//   }
+// };
+const signup = async (req, res) => {
+  try {
+    const saltRounds = 10;
+    const { name, email, password, role } = req.body;
+    console.log(name,email,password,role)
 
-    } catch (error) {
-        res.status(500).json({Error:"error in signup",error})
-        console.log(error)
+    const isUser = await userModel.findOne({ email: email });
+    if (isUser) {
+      return res.status(409).json({ message: "User already registered. Please sign in to continue." });
     }
-}
 
+    const hash = await bcrypt.hash(password, saltRounds);
+
+    await userModel.create({ ...req.body, password: hash });
+    console.log("signup successful", hash);
+
+   await sendMail(
+  email,
+  "Welcome to CRM Portal!",
+  `Welcome ${name}!`, 
+  name,
+  role
+);
+
+    res.status(200).json({ message: "signup successful" });
+
+  } catch (error) {
+    console.error("Signup error:", error);
+    res.status(500).json({ Error: "Error in signup", error });
+  }
+};
 
 const login = async (req, res) => {
-    try {
-        const { email, password } = req.body;
+  try {
+    const { email, password } = req.body;
 
-        if (!email || !password) {
-            return res.status(400).json({ message: 'Please enter all fields' });
-        }
-
-        const user = await userModel.findOne({ email });
-        if (!user) {
-            return res.status(400).json({ message: 'User does not exist' });
-        }
-
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) {
-            return res.status(400).json({ message: 'Invalid credentials' });
-        }
-
-        const token = jwt.sign(
-            { id: user._id },
-            process.env.JWT_SECRET,
-            { expiresIn: '24h' }
-        );
-
-        res.json({
-            token,
-            user: {
-                id: user._id,
-                name: user.name,
-                email: user.email,
-                role:user.role
-            }
-        });
-    } catch (error) {
-        console.error('Login error:', error);
-        res.status(500).json({ message: 'Server error' });
+    if (!email || !password) {
+      return res.status(400).json({ message: "Please enter all fields" });
     }
-}
 
-
-const ProfileData= async (req, res) => {
-    try {
-        
-        const token = req.header('x-auth-token');
-        
-        if (!token) {
-            return res.status(401).json({ message: 'No token, authorization denied' });
-        }
-
-        try {
-            const decoded = jwt.verify(token, process.env.JWT_SECRET);
-            
-            const user = await User.findById(decoded.id).select('-password');
-            if (!user) {
-                return res.status(404).json({ message: 'User not found' });
-            }
-            
-            res.json(user);
-        } catch (error) {
-            res.status(401).json({ message: 'Token is not valid' });
-        }
-    } catch (error) {
-        console.error('Profile error:', error);
-        res.status(500).json({ message: 'Server error' });
+    const user = await userModel.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ message: "User does not exist" });
     }
-}
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: "Invalid credentials" });
+    }
+
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "24h",
+    });
+
+    res.json({
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+const ProfileData = async (req, res) => {
+  try {
+    const token = req.header("x-auth-token");
+
+    if (!token) {
+      return res
+        .status(401)
+        .json({ message: "No token, authorization denied" });
+    }
+
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+      const user = await User.findById(decoded.id).select("-password");
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      res.json(user);
+    } catch (error) {
+      res.status(401).json({ message: "Token is not valid" });
+    }
+  } catch (error) {
+    console.error("Profile error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 const submitReferral = async (req, res) => {
   try {
     const { name, email, phone, jobTitle, resume } = req.body;
-    const userId = req.user.id; 
+    const userId = req.user.id;
 
     if (!name || !email || !phone || !jobTitle) {
-      return res.status(400).json({ message: 'All required fields must be provided' });
+      return res
+        .status(400)
+        .json({ message: "All required fields must be provided" });
     }
 
     const newReferral = await candidateReferal.create({
@@ -107,49 +144,49 @@ const submitReferral = async (req, res) => {
       phone,
       jobTitle,
       resume,
-      referredBy: userId
+      referredBy: userId,
     });
 
     await userModel.findByIdAndUpdate(userId, {
-      $push: { referrals: newReferral._id }
+      $push: { referrals: newReferral._id },
     });
 
     res.status(201).json({
-      message: 'Referral submitted successfully',
-      referral: newReferral
+      message: "Referral submitted successfully",
+      referral: newReferral,
     });
   } catch (error) {
-    res.status(500).json({ message: 'Something went wrong while submitting referral' });
-     console.error("Referral submission error:", error);
+    res
+      .status(500)
+      .json({ message: "Something went wrong while submitting referral" });
+    console.error("Referral submission error:", error);
   }
 };
 
-
-
 const myReferals = async (req, res) => {
   try {
-    
     const referrals = await candidateReferal.find({ referredBy: req.user._id });
     res.status(200).json(referrals);
   } catch (err) {
-    res.status(500).json({ message: 'Failed to fetch referrals' });
+    res.status(500).json({ message: "Failed to fetch referrals" });
   }
-}
+};
 
 //ADMIN ROUTES
 const fetchReferalsAdmin = async (req, res) => {
   try {
-    const referrals = await candidateReferal.find().populate('referredBy', 'name email');
+    const referrals = await candidateReferal
+      .find()
+      .populate("referredBy", "name email");
     res.status(200).json(referrals);
   } catch (err) {
-    res.status(500).json({ message: 'Failed to fetch referrals' });
+    res.status(500).json({ message: "Failed to fetch referrals" });
   }
-}
-
+};
 
 const statusUpdate = async (req, res) => {
   try {
-    const { status }=req.body;
+    const { status } = req.body;
 
     const updatedReferral = await candidateReferal.findByIdAndUpdate(
       req.params.id,
@@ -159,30 +196,30 @@ const statusUpdate = async (req, res) => {
 
     res.status(200).json(updatedReferral);
   } catch (err) {
-    res.status(500).json({ message: 'Failed to update status' });
+    res.status(500).json({ message: "Failed to update status" });
   }
-}
-
+};
 
 const bulkStatusUpdate = async (req, res) => {
   try {
     const { updates } = req.body;
-    
+
     // Validate request body
     if (!Array.isArray(updates) || updates.length === 0) {
-      return res.status(400).json({ 
-        message: 'Please provide an array of updates with referralIds and status' 
+      return res.status(400).json({
+        message:
+          "Please provide an array of updates with referralIds and status",
       });
     }
 
     // Validate structure of each update
-    const isValidUpdate = updates.every(update => 
-      update.referralId && update.status
+    const isValidUpdate = updates.every(
+      (update) => update.referralId && update.status
     );
 
     if (!isValidUpdate) {
-      return res.status(400).json({ 
-        message: 'Each update must contain referralId and status' 
+      return res.status(400).json({
+        message: "Each update must contain referralId and status",
       });
     }
 
@@ -198,56 +235,60 @@ const bulkStatusUpdate = async (req, res) => {
     const updatedReferrals = await Promise.all(bulkUpdatePromises);
 
     res.status(200).json({
-      message: 'Bulk status update successful',
-      updatedReferrals
+      message: "Bulk status update successful",
+      updatedReferrals,
     });
-
   } catch (error) {
-    console.error('Bulk update error:', error);
-    res.status(500).json({ 
-      message: 'Failed to perform bulk status update',
-      error: error.message 
+    console.error("Bulk update error:", error);
+    res.status(500).json({
+      message: "Failed to perform bulk status update",
+      error: error.message,
     });
   }
 };
 
-
-
 const deleteReferral = async (req, res) => {
-    try {
-        const referralId = req.params.id;
+  try {
+    const referralId = req.params.id;
 
-        // Find the referral first
-        const referral = await candidateReferal.findById(referralId);
-        
-        if (!referral) {
-            return res.status(404).json({ 
-                message: 'Referral not found' 
-            });
-        }
+    // Find the referral first
+    const referral = await candidateReferal.findById(referralId);
 
-        // Remove referral from user's referrals array
-        await userModel.findByIdAndUpdate(
-            referral.referredBy,
-            { $pull: { referrals: referralId } }
-        );
-
-        // Delete the referral
-        await candidateReferal.findByIdAndDelete(referralId);
-
-        res.status(200).json({ 
-            message: 'Referral deleted successfully',
-            deletedReferralId: referralId
-        });
-
-    } catch (error) {
-        console.error('Delete referral error:', error);
-        res.status(500).json({ 
-            message: 'Failed to delete referral',
-            error: error.message 
-        });
+    if (!referral) {
+      return res.status(404).json({
+        message: "Referral not found",
+      });
     }
+
+    // Remove referral from user's referrals array
+    await userModel.findByIdAndUpdate(referral.referredBy, {
+      $pull: { referrals: referralId },
+    });
+
+    // Delete the referral
+    await candidateReferal.findByIdAndDelete(referralId);
+
+    res.status(200).json({
+      message: "Referral deleted successfully",
+      deletedReferralId: referralId,
+    });
+  } catch (error) {
+    console.error("Delete referral error:", error);
+    res.status(500).json({
+      message: "Failed to delete referral",
+      error: error.message,
+    });
+  }
 };
 
-
-module.exports={submitReferral,signup,login,ProfileData, myReferals,fetchReferalsAdmin,statusUpdate,bulkStatusUpdate,deleteReferral}
+module.exports = {
+  submitReferral,
+  signup,
+  login,
+  ProfileData,
+  myReferals,
+  fetchReferalsAdmin,
+  statusUpdate,
+  bulkStatusUpdate,
+  deleteReferral,
+};

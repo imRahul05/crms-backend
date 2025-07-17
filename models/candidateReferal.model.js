@@ -1,42 +1,46 @@
 const mongoose = require('mongoose');
 
 const referralSchema = new mongoose.Schema({
-    name: {
-        type: String,
-        required: true,
-        
-    },
-    email: {
-        type: String,
-        required: true,
-        lowercase: true
-    },
-    phone: {
-        type: String,
-        required: true,
-    },
-    jobTitle: {
-        type: String,
-        required: true,
-    },
-    resume: {
-        type: String,
-        required:true
-    },
-    referredBy: {
+  name: {
+    type: String,
+    required: true,
+  },
+  email: {
+    type: String,
+    required: true,
+    lowercase: true,
+  },
+  phone: {
+    type: String,
+    required: true,
+  },
+  jobTitle: {
+    type: String,
+    required: true,
+  },
+  experience: {  
+    type: String,
+    enum: ['Fresher', '1', '2', '3', '4+'],  
+    default: 'Fresher'
+  },
+  resume: {
+    type: String,
+    required: true,
+  },
+  referredBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: true,
   },
   status: {
     type: String,
     enum: ['Pending', 'Reviewed', 'Accepted', 'Rejected'],
-    default: 'Pending'
-  }
+    default: 'Pending',
+  },
 }, {
-    timestamps: true
+  timestamps: true,
 });
-const candidateReferal = mongoose.model('Referral', referralSchema);
 
+const candidateReferral = mongoose.model('Referral', referralSchema);
 
-module.exports = candidateReferal
+module.exports = candidateReferral;
