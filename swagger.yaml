@@ -1,0 +1,279 @@
+openapi: 3.0.0
+info:
+  title: CRMS API
+  version: 1.0.0
+  description: API documentation for Candidate Referral Management System
+servers:
+  - url: http://localhost:8000
+  - url: https://your-production-url.com
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+        role:
+          type: string
+          enum: [user, admin]
+    
+    Referral:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        jobTitle:
+          type: string
+        status:
+          type: string
+          enum: [pending, accepted, rejected]
+        referredBy:
+          type: string
+
+paths:
+  /api/user/signup:
+    post:
+      summary: Register a new user
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        '200':
+          description: User registered successfully
+        '409':
+          description: User already exists
+        '500':
+          description: Server error
+
+  /api/user/login:
+    post:
+      summary: Login user
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Login successful
+        '400':
+          description: Invalid credentials
+        '500':
+          description: Server error
+
+  /api/user/profile:
+    get:
+      summary: Get user profile
+      tags: [User]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User profile data
+        '401':
+          description: Unauthorized
+        '404':
+          description: User not found
+
+  /api/user/referal-submit:
+    post:
+      summary: Submit a new referral
+      tags: [Referrals]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                phone:
+                  type: string
+                jobTitle:
+                  type: string
+                resume:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Referral submitted successfully
+        '400':
+          description: Missing required fields
+        '401':
+          description: Unauthorized
+
+  /api/user/my-referrals:
+    get:
+      summary: Get user's referrals
+      tags: [Referrals]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of user's referrals
+        '401':
+          description: Unauthorized
+
+  /api/user/admin/referrals:
+    get:
+      summary: Get all referrals (Admin only)
+      tags: [Admin]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of all referrals
+        '403':
+          description: Access denied - Admin only
+
+  /api/user/admin/referrals/{id}/status:
+    put:
+      summary: Update referral status (Admin only)
+      tags: [Admin]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [pending, accepted, rejected]
+      responses:
+        '200':
+          description: Status updated successfully
+        '403':
+          description: Access denied - Admin only
+
+  /api/user/admin/referrals/bulk-status-update:
+    put:
+      summary: Update multiple referral statuses (Admin only)
+      tags: [Admin]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                updates:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      referralId:
+                        type: string
+                      status:
+                        type: string
+                        enum: [pending, accepted, rejected]
+      responses:
+        '200':
+          description: Bulk status update successful
+        '403':
+          description: Access denied - Admin only
+
+  /api/user/admin/referrals/{id}:
+    delete:
+      summary: Delete a referral (Admin only)
+      tags: [Admin]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Referral deleted successfully
+        '403':
+          description: Access denied - Admin only
+        '404':
+          description: Referral not found
+
+  /api/user/reset-password:
+    post:
+      summary: Request password reset
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+      responses:
+        '200':
+          description: Reset link sent to email
+        '404':
+          description: User not found
+
+  /api/user/request-password-change:
+    post:
+      summary: Change password using reset token
+      tags: [Auth]
+      parameters:
+        - in: query
+          name: token
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                newPassword:
+                  type: string
+      responses:
+        '200':
+          description: Password changed successfully
+        '400':
+          description: Invalid token

@@ -6,7 +6,7 @@ const { userModel } = require('../models/user.model');
 //protect
 const protect = async (req, res, next) => {
   const authHeader = req.headers.authorization;
- // console.log(authHeader)
+ //console.log(authHeader)
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ message: 'No token provided, authorization denied' });
   }
@@ -15,7 +15,7 @@ const protect = async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log(decoded)
+   // console.log(decoded)
     const user = await userModel.findById(decoded.id).select('-password');
    // console.log(user)
     if (!user) {
