@@ -442,6 +442,241 @@ const deleteReferral = async (req, res) => {
   }
 };
 
+// const getAnalytics = async (req, res) => {
+//   try {
+//     const { type } = req.query; // 'bar' or 'line'
+    
+//     // Get all referrals
+//     const referrals = await candidateReferal.find();
+    
+//     if (type === 'bar') {
+//       const statusCounts = await candidateReferal.aggregate([
+//         {
+//           $group: {
+//             _id: "$status",
+//             count: { $sum: 1 }
+//           }
+//         }
+//       ]);
+
+//       const data = {
+//         labels: statusCounts.map(item => item._id),
+//         datasets: [{
+//           label: 'Referrals by Status',
+//           data: statusCounts.map(item => item.count),
+//           backgroundColor: [
+//             'rgba(75, 192, 192, 0.6)', 
+//             'rgba(54, 162, 235, 0.6)',  
+//             'rgba(255, 99, 132, 0.6)'   
+//           ]
+//         }]
+//       };
+
+//       return res.json({ type: 'bar', data });
+
+//     } else if (type === 'line') {
+//       const dailyReferrals = await candidateReferal.aggregate([
+//         {
+//           $group: {
+//             _id: {
+//               $dateToString: { format: "%Y-%m-%d", date: "$createdAt" }
+//             },
+//             count: { $sum: 1 }
+//           }
+//         },
+//         { $sort: { "_id": 1 } }
+//       ]);
+
+//       // Format data for line chart
+//       const data = {
+//         labels: dailyReferrals.map(item => item._id),
+//         datasets: [{
+//           label: 'Daily Referrals',
+//           data: dailyReferrals.map(item => item.count),
+//           fill: false,
+//           borderColor: 'rgb(75, 192, 192)',
+//           tension: 0.1
+//         }]
+//       };
+
+//       return res.json({ type: 'line', data });
+//     }
+
+//     // If no type specified, return overall statistics
+//     const stats = {
+//       total: await candidateReferal.countDocuments(),
+//       pending: await candidateReferal.countDocuments({ status: 'pending' }),
+//       accepted: await candidateReferal.countDocuments({ status: 'accepted' }),
+//       rejected: await candidateReferal.countDocuments({ status: 'rejected' }),
+//       recentReferrals: await candidateReferal
+//         .find()
+//         .sort({ createdAt: -1 })
+//         .limit(5)
+//         .populate('referredBy', 'name email')
+//     };
+
+//     res.json({ type: 'stats', data: stats });
+
+//   } catch (error) {
+//     console.error('Analytics error:', error);
+//     res.status(500).json({ 
+//       message: 'Failed to fetch analytics data',
+//       error: error.message 
+//     });
+//   }
+// };
+
+const getAnalytics = async (req, res) => {
+  try {
+    const { type } = req.query;
+    
+    switch (type) {
+      case 'bar': {
+        // Get status counts
+        const statusCounts = await candidateReferal.aggregate([
+          {
+            $group: {
+              _id: "$status",
+              count: { $sum: 1 }
+            }
+          }
+        ]);
+
+        // Format for Plotly bar chart
+        const plotlyData = [{
+          type: 'bar',
+          x: statusCounts.map(item => item._id),
+          y: statusCounts.map(item => item.count),
+          marker: {
+            color: ['rgba(75, 192, 192, 0.6)', 'rgba(54, 162, 235, 0.6)', 
+                   'rgba(255, 99, 132, 0.6)', 'rgba(255, 206, 86, 0.6)']
+          }
+        }];
+
+        const layout = {
+          title: 'Referrals by Status',
+          xaxis: { title: 'Status' },
+          yaxis: { title: 'Number of Referrals' }
+        };
+
+        return res.json({ 
+          type: 'bar',
+          data: plotlyData,
+          layout
+        });
+      }
+
+      case 'line': {
+        // Get daily referral counts
+        const dailyReferrals = await candidateReferal.aggregate([
+          {
+            $group: {
+              _id: {
+                $dateToString: { format: "%Y-%m-%d", date: "$createdAt" }
+              },
+              count: { $sum: 1 }
+            }
+          },
+          { $sort: { "_id": 1 } }
+        ]);
+
+        // Format for Plotly line chart
+        const plotlyData = [{
+          type: 'scatter',
+          mode: 'lines+markers',
+          x: dailyReferrals.map(item => item._id),
+          y: dailyReferrals.map(item => item.count),
+          line: {
+            color: 'rgb(75, 192, 192)',
+            width: 2
+          },
+          marker: {
+            color: 'rgb(75, 192, 192)',
+            size: 8
+          }
+        }];
+
+        const layout = {
+          title: 'Daily Referrals Trend',
+          xaxis: { title: 'Date' },
+          yaxis: { title: 'Number of Referrals' }
+        };
+
+        return res.json({
+          type: 'line',
+          data: plotlyData,
+          layout
+        });
+      }
+
+      case 'pie': {
+        // Get experience distribution
+        const experienceCounts = await candidateReferal.aggregate([
+          {
+            $group: {
+              _id: "$experience",
+              count: { $sum: 1 }
+            }
+          }
+        ]);
+
+        // Format for Plotly pie chart
+        const plotlyData = [{
+          type: 'pie',
+          labels: experienceCounts.map(item => item._id),
+          values: experienceCounts.map(item => item.count),
+          marker: {
+            colors: [
+              '#FF6384',
+              '#36A2EB',
+              '#FFCE56',
+              '#4BC0C0',
+              '#9966FF'
+            ]
+          }
+        }];
+
+        const layout = {
+          title: 'Referrals by Experience Level'
+        };
+
+        return res.json({
+          type: 'pie',
+          data: plotlyData,
+          layout
+        });
+      }
+
+      default: {
+        // Overall statistics with status distribution
+        const stats = {
+          counts: {
+            total: await candidateReferal.countDocuments(),
+            pending: await candidateReferal.countDocuments({ status: 'Pending' }),
+            reviewed: await candidateReferal.countDocuments({ status: 'Reviewed' }),
+            accepted: await candidateReferal.countDocuments({ status: 'Accepted' }),
+            rejected: await candidateReferal.countDocuments({ status: 'Rejected' })
+          },
+          recentReferrals: await candidateReferal
+            .find()
+            .sort({ createdAt: -1 })
+            .limit(5)
+            .populate('referredBy', 'name email')
+        };
+
+        return res.json({ type: 'stats', data: stats });
+      }
+    }
+
+  } catch (error) {
+    console.error('Analytics error:', error);
+    res.status(500).json({ 
+      message: 'Failed to fetch analytics data',
+      error: error.message 
+    });
+  }
+};
+
 module.exports = {
   submitReferral,
   signup,
@@ -453,5 +688,6 @@ module.exports = {
   bulkStatusUpdate,
   deleteReferral,
   resetPassword,
-  requestPasswordChange
+  requestPasswordChange,
+  getAnalytics
 };

@@ -13,6 +13,7 @@ const {
   deleteReferral,
   resetPassword,
   requestPasswordChange,
+  getAnalytics,
 } = require("../controllers/user.controller");
 const { isAdmin } = require("../middlewares/admin.middleware");
 const { protect } = require("../middlewares/auth.middleware");
@@ -47,4 +48,5 @@ userRouter.put('/admin/referrals/bulk-status-update', protect, isAdmin, bulkStat
 
 userRouter.delete('/admin/referrals/:id', protect, isAdmin, deleteReferral);
 
+userRouter.get('/admin/analytics', protect, isAdmin, getAnalytics);
 module.exports = userRouter;
