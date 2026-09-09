@@ -18,7 +18,8 @@ app.use(express.json());
 app.use(cors({
     origin: [
         "https://crms-frontend-theta.vercel.app",
-        "http://localhost:5173"
+        "http://localhost:5173",
+        "https://crms-dash.vercel.app"
     ],
     credentials: true,
 }));
